@@ -21,8 +21,3 @@
 * **Integraciones:** WhatsApp (Evolution API, Z-API), Google Workspace (Calendar, Sheets, Drive), CRMs.
 * **Bases de Datos & Memoria:** PostgreSQL, Redis, MySQL.
 
----
-
-## 📬 Contacto
-* **LinkedIn:** [Tu Perfil](https://linkedin.com/in/tu-usuario)
-* **Correo:** tu-email@ejemplo.com
