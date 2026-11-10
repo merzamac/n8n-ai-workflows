@@ -1,0 +1,200 @@
+{
+  "name": "n8n + WhatsApp + Chatwoot: Crea tu Sistema de Soporte",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "704275dd-4545-4150-aaf8-4ddff4787ce3",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -640,
+        -144
+      ],
+      "id": "2abc1c7b-da22-4305-a326-9e09da769bff",
+      "name": "Webhook",
+      "webhookId": "704275dd-4545-4150-aaf8-4ddff4787ce3"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "82b27a4b-3395-49ff-a051-5969a6eb4e7e",
+              "name": "account_id",
+              "value": "={{ $json.body.account.id }}",
+              "type": "number"
+            },
+            {
+              "id": "12d4ff2d-39f0-4025-af01-ab2d8fb751a8",
+              "name": "message",
+              "value": "={{ $json.body.content }}",
+              "type": "string"
+            },
+            {
+              "id": "ec277208-9ae5-4d5e-83b6-bc8468ac2cc3",
+              "name": "conversation_id",
+              "value": "={{ $json.body.conversation.id }}",
+              "type": "number"
+            },
+            {
+              "id": "3dd0b465-4077-4532-80b2-df22aa44e3c4",
+              "name": "sessionId",
+              "value": "={{ $json.body.conversation.meta.sender.phone_number }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -272,
+        -144
+      ],
+      "id": "80728cfb-f3db-4f84-bac6-96b7e0815825",
+      "name": "data_extraction"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message }}",
+        "options": {
+          "systemMessage": "Eres un clasificador de mensajes. tu objetivo es clasificar el siguiente mensaje en una unica categoria: venta, soporte o queja.\n\nResponde unicamente con una sola palabra, en minuscula, sin signos de puntuacion ni expliaciones: venta, soporte o queja."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -48,
+        -144
+      ],
+      "id": "d03196cb-d100-42bd-92c4-ba9f40cffbed",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -192,
+        64
+      ],
+      "id": "26a5026a-f39d-4adc-a58b-2c37b2d0a519",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        -48,
+        64
+      ],
+      "id": "02cb5f73-7217-4bea-9ada-2b6f861c971d",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://TU-URL-DE-CHATWOOT.trycloudflare.com/api/v1/accounts/{{ $('data_extraction').item.json.account_id }}/conversations/{{ $('data_extraction').item.json.conversation_id }}/labels",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "labels",
+              "value": "={{ Array($json.output)}}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        320,
+        -144
+      ],
+      "id": "0fac4872-1cc1-4c80-b089-821c6fc2fd7f",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "data_extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "data_extraction": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "622e2650-d93c-46c6-bd2c-b65e5f04450c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92d2b3b4c30908964bb0398a3dc9cbf2f0bd759a2688262032dd00f28ac39075"
+  },
+  "nodeGroups": [],
+  "id": "rfg2hBIlpK3KRfNs",
+  "tags": []
+}

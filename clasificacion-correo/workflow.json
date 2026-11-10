@@ -1,0 +1,283 @@
+{
+  "name": "Clasificacion de correo",
+  "nodes": [
+    {
+      "parameters": {
+        "inputText": "={{ $json.subject }},{{ $json.text }}",
+        "categories": {
+          "categories": [
+            {
+              "category": "Reclamos",
+              "description": "El usuario expresa una queja o inconformidad sobre un servicio o producto."
+            },
+            {
+              "category": "Soporte",
+              "description": "Solicitud de ayuda tecnica o guia para resolver un problema."
+            },
+            {
+              "category": "Ventas",
+              "description": "Mensaje relacionado con la compra de productos o servicios"
+            },
+            {
+              "category": "Otros",
+              "description": "Consulta o mensaje que no encaja en las categorias anteriores"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.textClassifier",
+      "typeVersion": 1.1,
+      "position": [
+        -224,
+        -192
+      ],
+      "id": "0a43e361-73e4-4bc4-94f5-c6fe02aa8dc9",
+      "name": "Text Classifier"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -224,
+        64
+      ],
+      "id": "c19633a1-e74c-4ed2-b492-7425cef3a486",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -416,
+        -160
+      ],
+      "id": "9d2d0a18-6d0d-432e-b3ff-902f8a3bd3f1",
+      "name": "Gmail_Entrada"
+    },
+    {
+      "parameters": {
+        "operation": "removeLabels",
+        "messageId": "={{ $('Gmail_Entrada').item.json.id }}",
+        "labelIds": [
+          "INBOX"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        -160
+      ],
+      "id": "ec5bde4d-5032-4ebb-a46b-7bca10105a76",
+      "name": "Remove label from message",
+      "webhookId": "aa1a89f5-bb02-4cef-a730-e5897dbf1ef5"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_7790668690856466233"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        -384
+      ],
+      "id": "eec27464-dbd3-4c70-86a4-993a5547ee67",
+      "name": "Add label  reclamos to email",
+      "webhookId": "8b49c532-94c1-4e31-9a6d-9a058b7cbc67"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_2631307734800481149"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        -224
+      ],
+      "id": "96c7709a-3d2c-4dcd-bc66-138ff9f05cdc",
+      "name": "Add label  soporte to email",
+      "webhookId": "8b49c532-94c1-4e31-9a6d-9a058b7cbc67"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_1193776795778160967"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        -64
+      ],
+      "id": "dc4ecdfd-7b90-46a1-ac95-6f6847136004",
+      "name": "Add label  ventas to email",
+      "webhookId": "8b49c532-94c1-4e31-9a6d-9a058b7cbc67"
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $json.id }}",
+        "labelIds": [
+          "Label_2571136395319072164"
+        ]
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        304,
+        80
+      ],
+      "id": "6acfc08c-3c24-4b4a-871b-e0da4b9071bb",
+      "name": "Add label  otros to email",
+      "webhookId": "8b49c532-94c1-4e31-9a6d-9a058b7cbc67"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail_Entrada": {
+      "main": [
+        [
+          {
+            "node": "Text Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Text Classifier": {
+      "main": [
+        [
+          {
+            "node": "Add label  reclamos to email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add label  soporte to email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add label  ventas to email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Add label  otros to email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label  reclamos to email": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label  soporte to email": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label  ventas to email": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add label  otros to email": {
+      "main": [
+        [
+          {
+            "node": "Remove label from message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "cd88bf6c-f19b-4d48-9a53-76ab78e88f7c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92d2b3b4c30908964bb0398a3dc9cbf2f0bd759a2688262032dd00f28ac39075"
+  },
+  "nodeGroups": [],
+  "id": "VuiwGzdl4ESPnxxZ",
+  "tags": []
+}

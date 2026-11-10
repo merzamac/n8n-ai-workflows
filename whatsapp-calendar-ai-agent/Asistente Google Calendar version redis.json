@@ -1,0 +1,813 @@
+{
+  "name": "Asistente Google Calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asistente-citas",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -848,
+        0
+      ],
+      "id": "54a94b5c-1a07-41d4-a44b-bc47a9bb79fa",
+      "name": "Webhook",
+      "webhookId": "asistente-citas"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "6c96e320-c544-4abc-b6ab-7d20f4d235c0",
+              "leftValue": "={{ $json.message_type }}",
+              "rightValue": "=conversation",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        -368,
+        0
+      ],
+      "id": "b75b0e3f-6274-4be9-8618-9c203bb00d57",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "voice_message",
+        "options": {
+          "mimeType": "audio/ogg"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        128
+      ],
+      "id": "1c2fdd5e-fdf4-43d6-9b4c-ec6f7c1a638f",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "Gemini 3.5 Flash Lite"
+        },
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        32,
+        128
+      ],
+      "id": "8c8b5313-0546-4057-9447-e23e54ff9c6f",
+      "name": "Transcribe a recording",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "65719484-5003-4a82-825f-56de8dc93fbe",
+              "name": "final_message",
+              "value": "={{ $json.text_message }}",
+              "type": "string"
+            },
+            {
+              "id": "de2151ac-cc47-423b-a390-1007a056e49e",
+              "name": "sessionId",
+              "value": "={{ $('data_message_extraction').item.json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        48,
+        -32
+      ],
+      "id": "bcf78b06-d4f3-474b-b1ec-61ce586856be",
+      "name": "final_message_txt"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26bc328c-d5bd-4c81-8fe4-762ebc15baa5",
+              "name": "final_message",
+              "value": "={{ $json.content.parts[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "70b0aa07-57e4-45bd-9026-955878e23596",
+              "name": "sessionId",
+              "value": "={{ $('data_message_extraction').item.json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        240,
+        128
+      ],
+      "id": "e5afecb0-9366-472e-aa82-5edf5a4108bf",
+      "name": "final_message_voice"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.concat_message }}",
+        "options": {
+          "systemMessage": "=Eres un asistente llamado JARVIS que interpreta mensajes recibidos por WhatsApp para gestionar citas en Google Calendar.\n\nHoy es {{ $now }}. Zona horaria: America/Bogota (UTC-5)\n\nTu trabajo es entender lo que el usuario necesita y actuar en consecuencia, usando las herramientas disponibles. Solo gestionas citas. No respondes preguntas generales.\n\nPuedes realizar las siguientes tareas:\n- crear_evento: cuando el usuario quiere agendar una cita nueva\n- reprogramar_evento: cuando quiere cambiar la fecha o la hora de una cita existente\n- eliminar_evento: cuando quiere cancelar una cita existente\n- consultar_evento: cuando quiere saber cuándo tiene una cita\n\nEjemplos de mensajes y sus intenciones:\n- “Agenda una reunión con Laura mañana a las 4” = crear_evento\n- “Pasemos la cita del lunes para el miércoles” = reprogramar_evento\n- “Cancela la reunión de hoy” = eliminar_evento\n- “¿Qué tengo esta semana?” = consultar_evento\n\nHerramientas disponibles según la tarea:\n- crear_evento = agendar cita\n- reprogramar_evento = reprogramar cita\n- eliminar_evento = cancelar cita\n- consultar_evento = consultar citas\n\nTu respuesta debe ser en lenguaje natural, clara y breve, como si estuvieras escribiendo por WhatsApp. Usa emojis si es apropiado.\n\nExtrae toda la información posible del mensaje: título, fecha, hora, duración y ubicación. Si algún dato importante no está claro (por ejemplo, la hora), pregúntalo de forma amable antes de ejecutar la acción.\n\nEjemplos de respuesta:\n- Evento creado: “Listo, agendé tu cita ‘Reunión con Laura’ para mañana a las 4:00 p.m. 😊”\n- Evento reprogramado: “He actualizado tu cita. Ahora es el miércoles a las 3:00 p.m.”\n- Evento eliminado: “He cancelado tu cita programada para hoy. Si necesitas otra, dime. 👍”\n- Consulta: “Tienes una cita ‘Reunión con equipo’ el viernes a las 10:00 a.m.”\n\nSi el mensaje es ambiguo o no se entiende qué desea el usuario, pídele amablemente que aclare su intención.\n\nNo devuelvas estructuras técnicas ni generes JSON. Tu única salida debe ser una respuesta conversacional humana.\n\nPuedes usar la memoria de los últimos 10 mensajes del usuario para mantener el contexto si es necesario.\n\nTen en cuenta estas expresiones comunes de fecha y su interpretación:\n- “mañana a las 10am” = día siguiente a la fecha actual, a las 10:00 a.m.\n- “el próximo lunes” = el lunes siguiente a la fecha actual\n- “dentro de 8 días” = ocho días después de la fecha actual\n- “el mes que viene” = el mismo día del mes siguiente\n- “este viernes por la tarde” = si el viernes ya pasó esta semana, se refiere al próximo viernes\n\nSi no se menciona una duración específica para la cita, asume que es de una hora.\n\nCuando uses una herramienta, asegúrate de proporcionar correctamente estos datos si están disponibles en el mensaje del usuario:\n- Título del evento = summary\n- Fecha y hora de inicio = startTime (formato ISO 8601)\n- Fecha y hora de finalización = endTime (puede calcularse si hay duración)\n- Descripción = description (opcional)\n- Ubicación = location (opcional)\n\nNo incluyas enlaces de videollamadas (como Google Meet) en tus respuestas, aunque la herramienta los devuelva."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1424,
+        -16
+      ],
+      "id": "b43ce540-d9df-4555-a88f-4fee2fe46f86",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemma-4-26b-a4b-it",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1376,
+        176
+      ],
+      "id": "b129383b-21e8-4641-8ab7-d33821f50c87",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.4,
+      "position": [
+        1504,
+        192
+      ],
+      "id": "084674dd-9fbb-4908-a70b-dfd6f03b30d8",
+      "name": "Postgres Chat Memory"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Usa esta herramienta cuando el usuario desee crear una nueva cita.",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', ``, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1632,
+        240
+      ],
+      "id": "9736a844-d376-49d3-8fc6-1c1b595c7a35",
+      "name": "crear_evento"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "usa esta herramienta cuando el ususario desee mover una cita a otro dia u hora.",
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "updateFields": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1728,
+        336
+      ],
+      "id": "6a2cdc8c-b153-4756-80e5-bf43ebe948ef",
+      "name": "reprogramar_evento"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "usa esta herramienta sie el usuario desea eliminar una cita existente.",
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1824,
+        432
+      ],
+      "id": "a4cc694a-0395-4d61-84e5-7b8585f5d757",
+      "name": "cancelar_evento"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "usa esta herramienta si el usuario desea saber cuando tiene citas.",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "limit": 10,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1920,
+        528
+      ],
+      "id": "15574c56-98c6-42f2-98e4-d9922b8de10f",
+      "name": "consultar_evento"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8080/message/sendText/{{ $('Webhook').item.json.body.instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "TU_API_KEY_EVOLUTION"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('data_message_extraction').item.json.sender.split('@')[0] }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1792,
+        -16
+      ],
+      "id": "49824034-9397-4823-b4f6-9e6ea0bb9bc6",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf47bc32-ca10-4749-a679-88b99df3cada",
+              "name": "sender",
+              "value": "={{ $json.body.data.key.remoteJid }}",
+              "type": "string"
+            },
+            {
+              "id": "b2fab046-3c4a-4caa-9995-26623fc731b9",
+              "name": "message_type",
+              "value": "={{ $json.body.data.messageType }}",
+              "type": "string"
+            },
+            {
+              "id": "4c2e55f2-6b5a-43a6-900f-fe6fc84729de",
+              "name": "voice_message",
+              "value": "={{ $json.body.data.message.base64 }}",
+              "type": "string"
+            },
+            {
+              "id": "6cc8e643-9c72-45f4-8a72-1f82f7d63d9d",
+              "name": "text_message",
+              "value": "={{ $json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "4ab1a29a-7ca7-4d1c-92ef-ad1ef9c26270",
+              "name": "sessionId",
+              "value": "={{ $json.body.data.key.id }}",
+              "type": "string"
+            },
+            {
+              "id": "6e14b567-b9c9-4b88-a225-46b714d15568",
+              "name": "date_time",
+              "value": "={{ $json.body.data.messageTimestamp.toDateTime('s').toLocal() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -592,
+        0
+      ],
+      "id": "0ae04e5e-bf41-47fa-82b6-833e3954bf42",
+      "name": "data_message_extraction"
+    },
+    {
+      "parameters": {
+        "operation": "push",
+        "list": "={{ $('data_message_extraction').item.json.sender }}",
+        "messageData": "={{ JSON.stringify(\n{\n'message': $json.final_message ,\n'sessionId': $('data_message_extraction').item.json.sessionId ,\n'date_time': $('data_message_extraction').item.json.date_time \n}\n) }}",
+        "tail": true
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        432,
+        0
+      ],
+      "id": "2eac5a07-64c0-499f-8095-ee84e23f0627",
+      "name": "buffer"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "propertyName": "message",
+        "key": "={{ $('data_message_extraction').item.json.sender }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        624,
+        0
+      ],
+      "id": "329eb489-2c33-4f7d-a63d-ad850addb53b",
+      "name": "get_buffer_data"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ JSON.parse($json.message.last()).sessionId }}",
+                    "rightValue": "={{ $('data_message_extraction').item.json.sessionId }}",
+                    "operator": {
+                      "type": "string",
+                      "operation": "notEquals"
+                    },
+                    "id": "1ae2c4e6-3607-4655-a871-2d4a76b87e35"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Ignore"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "76cfef04-5117-4b73-90e3-e2483a3c7ba4",
+                    "leftValue": "={{ JSON.parse($json.message.last()).date_time }}",
+                    "rightValue": "={{ $now.minus(10,'seconds').toLocal() }}",
+                    "operator": {
+                      "type": "dateTime",
+                      "operation": "before"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "continue"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra",
+          "renameFallbackOutput": "wait"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        848,
+        0
+      ],
+      "id": "6277c966-4ac3-42a3-8353-28eec72c3190",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1008,
+        144
+      ],
+      "id": "e90f8b5d-d243-4fd4-9abb-4e06b29ddcf5",
+      "name": "Wait",
+      "webhookId": "de267d11-d3d4-4a4d-b2c8-384c89ffc033"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        1040,
+        -224
+      ],
+      "id": "85a027e1-ac30-4ab5-b405-22c2a3a98412",
+      "name": "No Operation, do nothing"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "key": "={{ $('data_message_extraction').item.json.sender }}"
+      },
+      "type": "n8n-nodes-base.redis",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -16
+      ],
+      "id": "bb51a72f-64a7-4432-8b30-df5e84c005c8",
+      "name": "delete_buffer"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bc942bf7-dac5-4454-aa89-c200ebb6d424",
+              "name": "concat_message",
+              "value": "={{ $json.message.map(m => m.startsWith('{') ? JSON.parse(m).message : m).join('\\n') }}",
+              "type": "string"
+            },
+            {
+              "id": "0ed687af-7b31-4fee-85aa-8e2c61c1020e",
+              "name": "sessionId",
+              "value": "={{ $('data_message_extraction').item.json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1280,
+        -16
+      ],
+      "id": "1106fe85-6d61-4b6a-a253-63a11b45c98d",
+      "name": "Edit Fields"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "data_message_extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "final_message_txt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "final_message_voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "final_message_txt": {
+      "main": [
+        [
+          {
+            "node": "buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "final_message_voice": {
+      "main": [
+        [
+          {
+            "node": "buffer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "crear_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "reprogramar_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cancelar_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "consultar_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "data_message_extraction": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "buffer": {
+      "main": [
+        [
+          {
+            "node": "get_buffer_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_buffer_data": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "No Operation, do nothing",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "delete_buffer",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "get_buffer_data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "delete_buffer": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "America/Caracas",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "c8ab3497-52f9-4959-b505-94968c333a72",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92d2b3b4c30908964bb0398a3dc9cbf2f0bd759a2688262032dd00f28ac39075"
+  },
+  "nodeGroups": [],
+  "id": "JAasfd3AL8RsdbBy",
+  "tags": []
+}

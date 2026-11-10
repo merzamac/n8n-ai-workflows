@@ -1,0 +1,559 @@
+{
+  "name": "Asistente Google Calendar",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "asistente-citas",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.2,
+      "position": [
+        -544,
+        0
+      ],
+      "id": "54a94b5c-1a07-41d4-a44b-bc47a9bb79fa",
+      "name": "Webhook",
+      "webhookId": "asistente-citas"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "6c96e320-c544-4abc-b6ab-7d20f4d235c0",
+              "leftValue": "={{ $json.message_type }}",
+              "rightValue": "=conversation",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        -64,
+        0
+      ],
+      "id": "b75b0e3f-6274-4be9-8618-9c203bb00d57",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "operation": "toBinary",
+        "sourceProperty": "voice_message",
+        "options": {
+          "mimeType": "audio/ogg"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.2,
+      "position": [
+        144,
+        128
+      ],
+      "id": "1c2fdd5e-fdf4-43d6-9b4c-ec6f7c1a638f",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.5-flash-lite",
+          "mode": "list",
+          "cachedResultName": "Gemini 3.5 Flash Lite"
+        },
+        "inputType": "binary",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        336,
+        128
+      ],
+      "id": "8c8b5313-0546-4057-9447-e23e54ff9c6f",
+      "name": "Transcribe a recording",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "65719484-5003-4a82-825f-56de8dc93fbe",
+              "name": "final_message",
+              "value": "={{ $json.text_message }}",
+              "type": "string"
+            },
+            {
+              "id": "de2151ac-cc47-423b-a390-1007a056e49e",
+              "name": "sessionId",
+              "value": "={{ $('data_message_extraction').item.json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        352,
+        -32
+      ],
+      "id": "bcf78b06-d4f3-474b-b1ec-61ce586856be",
+      "name": "final_message_txt"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26bc328c-d5bd-4c81-8fe4-762ebc15baa5",
+              "name": "final_message",
+              "value": "={{ $json.content.parts[0].text }}",
+              "type": "string"
+            },
+            {
+              "id": "70b0aa07-57e4-45bd-9026-955878e23596",
+              "name": "sessionId",
+              "value": "={{ $('data_message_extraction').item.json.sessionId }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        544,
+        128
+      ],
+      "id": "e5afecb0-9366-472e-aa82-5edf5a4108bf",
+      "name": "final_message_voice"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.final_message }}",
+        "options": {
+          "systemMessage": "=Eres un asistente llamado JARVIS que interpreta mensajes recibidos por WhatsApp para gestionar citas en Google Calendar.\n\nHoy es {{ $now }}. Zona horaria: America/Bogota (UTC-5)\n\nTu trabajo es entender lo que el usuario necesita y actuar en consecuencia, usando las herramientas disponibles. Solo gestionas citas. No respondes preguntas generales.\n\nPuedes realizar las siguientes tareas:\n- crear_evento: cuando el usuario quiere agendar una cita nueva\n- reprogramar_evento: cuando quiere cambiar la fecha o la hora de una cita existente\n- eliminar_evento: cuando quiere cancelar una cita existente\n- consultar_evento: cuando quiere saber cuándo tiene una cita\n\nEjemplos de mensajes y sus intenciones:\n- “Agenda una reunión con Laura mañana a las 4” = crear_evento\n- “Pasemos la cita del lunes para el miércoles” = reprogramar_evento\n- “Cancela la reunión de hoy” = eliminar_evento\n- “¿Qué tengo esta semana?” = consultar_evento\n\nHerramientas disponibles según la tarea:\n- crear_evento = agendar cita\n- reprogramar_evento = reprogramar cita\n- eliminar_evento = cancelar cita\n- consultar_evento = consultar citas\n\nTu respuesta debe ser en lenguaje natural, clara y breve, como si estuvieras escribiendo por WhatsApp. Usa emojis si es apropiado.\n\nExtrae toda la información posible del mensaje: título, fecha, hora, duración y ubicación. Si algún dato importante no está claro (por ejemplo, la hora), pregúntalo de forma amable antes de ejecutar la acción.\n\nEjemplos de respuesta:\n- Evento creado: “Listo, agendé tu cita ‘Reunión con Laura’ para mañana a las 4:00 p.m. 😊”\n- Evento reprogramado: “He actualizado tu cita. Ahora es el miércoles a las 3:00 p.m.”\n- Evento eliminado: “He cancelado tu cita programada para hoy. Si necesitas otra, dime. 👍”\n- Consulta: “Tienes una cita ‘Reunión con equipo’ el viernes a las 10:00 a.m.”\n\nSi el mensaje es ambiguo o no se entiende qué desea el usuario, pídele amablemente que aclare su intención.\n\nNo devuelvas estructuras técnicas ni generes JSON. Tu única salida debe ser una respuesta conversacional humana.\n\nPuedes usar la memoria de los últimos 10 mensajes del usuario para mantener el contexto si es necesario.\n\nTen en cuenta estas expresiones comunes de fecha y su interpretación:\n- “mañana a las 10am” = día siguiente a la fecha actual, a las 10:00 a.m.\n- “el próximo lunes” = el lunes siguiente a la fecha actual\n- “dentro de 8 días” = ocho días después de la fecha actual\n- “el mes que viene” = el mismo día del mes siguiente\n- “este viernes por la tarde” = si el viernes ya pasó esta semana, se refiere al próximo viernes\n\nSi no se menciona una duración específica para la cita, asume que es de una hora.\n\nCuando uses una herramienta, asegúrate de proporcionar correctamente estos datos si están disponibles en el mensaje del usuario:\n- Título del evento = summary\n- Fecha y hora de inicio = startTime (formato ISO 8601)\n- Fecha y hora de finalización = endTime (puede calcularse si hay duración)\n- Descripción = description (opcional)\n- Ubicación = location (opcional)\n\nNo incluyas enlaces de videollamadas (como Google Meet) en tus respuestas, aunque la herramienta los devuelva."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        816,
+        -32
+      ],
+      "id": "b43ce540-d9df-4555-a88f-4fee2fe46f86",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemma-4-26b-a4b-it",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        768,
+        160
+      ],
+      "id": "b129383b-21e8-4641-8ab7-d33821f50c87",
+      "name": "Google Gemini Chat Model"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 10
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+      "typeVersion": 1.4,
+      "position": [
+        896,
+        176
+      ],
+      "id": "084674dd-9fbb-4908-a70b-dfd6f03b30d8",
+      "name": "Postgres Chat Memory"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Usa esta herramienta cuando el usuario desee crear una nueva cita.",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', ``, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', ``, 'string') }}",
+        "additionalFields": {
+          "description": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Description', ``, 'string') }}",
+          "summary": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Summary', ``, 'string') }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1024,
+        224
+      ],
+      "id": "9736a844-d376-49d3-8fc6-1c1b595c7a35",
+      "name": "crear_evento"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "usa esta herramienta cuando el ususario desee mover una cita a otro dia u hora.",
+        "operation": "update",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "updateFields": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1120,
+        320
+      ],
+      "id": "6a2cdc8c-b153-4756-80e5-bf43ebe948ef",
+      "name": "reprogramar_evento"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "usa esta herramienta sie el usuario desea eliminar una cita existente.",
+        "operation": "delete",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "eventId": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Event_ID', ``, 'string') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1216,
+        416
+      ],
+      "id": "a4cc694a-0395-4d61-84e5-7b8585f5d757",
+      "name": "cancelar_evento"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "usa esta herramienta si el usuario desea saber cuando tiene citas.",
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "tu-email@gmail.com",
+          "mode": "list",
+          "cachedResultName": "tu-email@gmail.com"
+        },
+        "limit": 10,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        1312,
+        512
+      ],
+      "id": "15574c56-98c6-42f2-98e4-d9922b8de10f",
+      "name": "consultar_evento"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=http://host.docker.internal:8080/message/sendText/{{ $('Webhook').item.json.body.instance }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "apikey",
+              "value": "TU_API_KEY_EVOLUTION"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "number",
+              "value": "={{ $('data_message_extraction').item.json.sender.split('@')[0] }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.output }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1184,
+        -32
+      ],
+      "id": "49824034-9397-4823-b4f6-9e6ea0bb9bc6",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "bf47bc32-ca10-4749-a679-88b99df3cada",
+              "name": "sender",
+              "value": "={{ $json.body.data.key.remoteJid }}",
+              "type": "string"
+            },
+            {
+              "id": "b2fab046-3c4a-4caa-9995-26623fc731b9",
+              "name": "message_type",
+              "value": "={{ $json.body.data.messageType }}",
+              "type": "string"
+            },
+            {
+              "id": "4c2e55f2-6b5a-43a6-900f-fe6fc84729de",
+              "name": "voice_message",
+              "value": "={{ $json.body.data.message.base64 }}",
+              "type": "string"
+            },
+            {
+              "id": "6cc8e643-9c72-45f4-8a72-1f82f7d63d9d",
+              "name": "text_message",
+              "value": "={{ $json.body.data.message.conversation }}",
+              "type": "string"
+            },
+            {
+              "id": "4ab1a29a-7ca7-4d1c-92ef-ad1ef9c26270",
+              "name": "sessionId",
+              "value": "={{ $json.body.data.key.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -288,
+        0
+      ],
+      "id": "0ae04e5e-bf41-47fa-82b6-833e3954bf42",
+      "name": "data_message_extraction"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "data_message_extraction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "final_message_txt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert to File": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording": {
+      "main": [
+        [
+          {
+            "node": "final_message_voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "final_message_txt": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "final_message_voice": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres Chat Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "crear_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "reprogramar_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "cancelar_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "consultar_evento": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "data_message_extraction": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "timezone": "America/Caracas",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "76200e2a-8bc7-4240-9bdd-594f5dcd9838",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "92d2b3b4c30908964bb0398a3dc9cbf2f0bd759a2688262032dd00f28ac39075"
+  },
+  "nodeGroups": [],
+  "id": "JAasfd3AL8RsdbBy",
+  "tags": []
+}
